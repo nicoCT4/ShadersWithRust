@@ -211,28 +211,20 @@ fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       position.z * terrain_zoom,
    );
    
-   // Colores base de Marte
-   let rust_color = Color::from_hex(0xCD5C5C);       // Rojo óxido principal
-   let dark_rust = Color::from_hex(0x8B4513);        // Óxido oscuro
-   let light_rust = Color::from_hex(0xDEB887);       // Óxido claro/arena
-   let deep_canyon = Color::from_hex(0x654321);      // Cañones profundos
+   // Capa base con variación de rugosidad
+   let base_noise = terrain_noise.abs();
+   let terrain_roughness = base_noise * 0.7 + 0.3;
    
-   let mut base_color = if terrain_noise > 0.0 {
-      // Tierras altas marcianas
-      if terrain_noise > 0.5 {
-         // Montañas y mesetas
-         let t = (terrain_noise - 0.5) * 2.0;
-         lerp_color(&rust_color, &light_rust, t)
-      } else {
-         rust_color
-      }
+   // Colores base de Marte (más uniforme en tonos rojizos)
+   let rust_red = Color::from_hex(0xB22222);    // Rojo ladrillo
+   let mars_dust = Color::from_hex(0xCD853F);   // Polvo marciano
+   let iron_oxide = Color::from_hex(0x8B4513);  // Marrón silla
+   
+   let mut base_color = if terrain_roughness > 0.6 {
+      blend_colors(&rust_red, &iron_oxide, (terrain_roughness - 0.6) / 0.4)
    } else {
-      // Tierras bajas y cañones
-      let depth = terrain_noise.abs();
-      lerp_color(&dark_rust, &deep_canyon, depth)
-   };
-   
-   // Capa 2: Detalles de superficie marciana (dunas, cráteres)
+      blend_colors(&mars_dust, &rust_red, terrain_roughness / 0.6)
+   };   // Capa 2: Detalles de superficie marciana (dunas, cráteres)
    let detail_zoom = 10.0;
    let detail_noise = uniforms.noise.get_noise_3d(
       position.x * detail_zoom + 100.0,
@@ -247,15 +239,7 @@ fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
    };
    base_color = blend_colors(&base_color, &detail_color, detail_noise.abs() * 0.4);
    
-   // Capa 3: Casquetes polares de hielo seco (CO2)
-   let polar_threshold = 0.8;
-   if position.y.abs() > polar_threshold {
-      let polar_factor = (position.y.abs() - polar_threshold) / (1.0 - polar_threshold);
-      let ice_color = Color::from_hex(0xE6E6FA); // Hielo seco (ligeramente azulado)
-      base_color = blend_colors(&base_color, &ice_color, polar_factor * 0.7);
-   }
-   
-   // Capa 4: Tormentas de polvo marcianas
+   // Capa 3: Tormentas de polvo marcianas
    let dust_zoom = 8.0;
    let dust_speed = 0.1;
    let dust_noise = uniforms.noise.get_noise_3d(

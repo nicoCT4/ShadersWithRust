@@ -70,7 +70,7 @@ impl RenderContext {
         bodies.push(
             CelestialBody::new(
                 Vec3::new(6.0, 0.0, 0.0),
-                1.2,
+                0.8, 
                 ShaderType::GasGiant,
             )
             .with_orbit(6.0, 0.25)
