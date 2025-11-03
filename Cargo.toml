@@ -1,0 +1,11 @@
+[package]
+name = "space-renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nalgebra-glm = "0.19.0"
+minifb = "0.28.0"
+tobj = "4.0"
+rand = "0.9.1"
+fastnoise-lite = "1.1"
