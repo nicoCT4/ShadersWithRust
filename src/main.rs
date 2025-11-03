@@ -233,7 +233,10 @@ fn main() {
     println!("Controls:");
     println!("  Arrow Keys: Orbit camera");
     println!("  W/S: Zoom in/out");
-    println!("  1-3: Switch between celestial bodies");
+    println!("  1: Focus on Sun");
+    println!("  2: Focus on Mars (Rocky Planet)");
+    println!("  3: Focus on Moon");
+    println!("  4: Focus on Jupiter (Gas Giant)");
     println!("  Space: Toggle orbit animation");
     println!("  ESC: Exit");
 
@@ -372,12 +375,17 @@ fn handle_input(window: &Window, context: &mut RenderContext, orbit_enabled: &mu
     if window.is_key_pressed(Key::Key2, minifb::KeyRepeat::No) {
         context.current_body_index = 1;
         context.camera.center = context.bodies[1].position;
-        println!("Focusing on: Rocky Planet");
+        println!("Focusing on: Rocky Planet (Mars)");
     }
     if window.is_key_pressed(Key::Key3, minifb::KeyRepeat::No) {
         context.current_body_index = 2;
         context.camera.center = context.bodies[2].position;
-        println!("Focusing on: Gas Giant");
+        println!("Focusing on: Moon");
+    }
+    if window.is_key_pressed(Key::Key4, minifb::KeyRepeat::No) {
+        context.current_body_index = 3;
+        context.camera.center = context.bodies[3].position;
+        println!("Focusing on: Gas Giant (Jupiter)");
     }
 
     // Toggle orbit animation
