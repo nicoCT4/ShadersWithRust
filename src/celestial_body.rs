@@ -7,6 +7,7 @@ pub enum ShaderType {
    GasGiant,
    Moon,
    RingedPlanet,
+   Starfield,
 }
 
 pub struct CelestialBody {

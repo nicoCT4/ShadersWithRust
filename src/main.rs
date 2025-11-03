@@ -20,7 +20,7 @@ use triangle::triangle;
 use camera::Camera;
 use shaders::{vertex_shader, fragment_shader, Uniforms};
 use celestial_body::{CelestialBody, ShaderType};
-use fastnoise_lite::FastNoiseLite;
+
 
 pub struct RenderContext {
     framebuffer: Framebuffer,
@@ -55,16 +55,29 @@ impl RenderContext {
             .with_rotation_speed(Vec3::new(0.0, 0.5, 0.0))
         );
         
+        // Luna del planeta rocoso
+        bodies.push(
+            CelestialBody::new(
+                Vec3::new(3.8, 0.0, 0.0), // Cerca del planeta rocoso
+                0.15, // Más pequeña que el planeta
+                ShaderType::Moon,
+            )
+            .with_orbit(0.8, 1.2) // Órbita alrededor del planeta rocoso
+            .with_rotation_speed(Vec3::new(0.0, 0.3, 0.0))
+        );
+        
         // Gigante gaseoso (tipo Júpiter)
         bodies.push(
             CelestialBody::new(
-                Vec3::new(5.0, 0.0, 0.0),
-                1.0,
+                Vec3::new(6.0, 0.0, 0.0),
+                1.2,
                 ShaderType::GasGiant,
             )
-            .with_orbit(5.0, 0.3)
+            .with_orbit(6.0, 0.25)
             .with_rotation_speed(Vec3::new(0.0, 0.8, 0.0))
         );
+        
+        // Temporalmente removido el campo de estrellas para debug
 
         RenderContext {
             framebuffer: Framebuffer::new(width, height),
@@ -241,8 +254,45 @@ fn main() {
         // Update bodies
         if orbit_enabled {
             context.time += delta_time;
-            for body in &mut context.bodies {
-                body.update(delta_time);
+            
+            // Guardamos las posiciones que necesitamos antes de modificar
+            let planet_pos = if context.bodies.len() > 1 {
+                context.bodies[1].position
+            } else {
+                Vec3::new(0.0, 0.0, 0.0)
+            };
+            
+
+            
+            // Actualizamos los cuerpos
+            for i in 0..context.bodies.len() {
+                match i {
+                    0 => { // Sol - solo rotación
+                        let rotation_speed = context.bodies[i].rotation_speed;
+                        context.bodies[i].rotation += rotation_speed * delta_time;
+                        context.bodies[i].time += delta_time;
+                    },
+                    1 => { // Planeta rocoso - órbita normal
+                        context.bodies[i].update(delta_time);
+                    },
+                    2 => { // Luna - orbita alrededor del planeta rocoso
+                        let orbit_speed = context.bodies[i].orbit_speed;
+                        let orbit_radius = context.bodies[i].orbit_radius;
+                        let rotation_speed = context.bodies[i].rotation_speed;
+                        
+                        context.bodies[i].orbit_angle += orbit_speed * delta_time;
+                        context.bodies[i].position.x = planet_pos.x + context.bodies[i].orbit_angle.cos() * orbit_radius;
+                        context.bodies[i].position.z = planet_pos.z + context.bodies[i].orbit_angle.sin() * orbit_radius;
+                        context.bodies[i].rotation += rotation_speed * delta_time;
+                        context.bodies[i].time += delta_time;
+                    },
+                    3 => { // Gigante gaseoso - órbita normal
+                        context.bodies[i].update(delta_time);
+                    },
+                    _ => {
+                        context.bodies[i].update(delta_time);
+                    }
+                }
             }
         }
 
@@ -287,7 +337,7 @@ fn main() {
 }
 
 fn handle_input(window: &Window, context: &mut RenderContext, orbit_enabled: &mut bool) {
-    let movement_speed = 0.5;
+    let _movement_speed = 0.5;
     let rotation_speed = PI / 50.0;
     let zoom_speed = 0.5;
 

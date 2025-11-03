@@ -1,10 +1,8 @@
-use nalgebra_glm::Vec3;
 use crate::fragment::Fragment;
 use crate::vertex::Vertex;
 use crate::color::Color;
 use crate::celestial_body::ShaderType;
-use fastnoise_lite::{FastNoiseLite, NoiseType, FractalType};
-use std::f32::consts::PI;
+use fastnoise_lite::{FastNoiseLite, NoiseType};
 
 // Estructura de Uniforms actualizada
 pub struct Uniforms {
@@ -92,33 +90,30 @@ pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, shader_type: &S
       ShaderType::RockyPlanet => rocky_planet_shader(fragment, uniforms),
       ShaderType::GasGiant => gas_giant_shader(fragment, uniforms),
       ShaderType::Moon => moon_shader(fragment, uniforms),
-      ShaderType::RingedPlanet => gas_giant_shader(fragment, uniforms),
+      ShaderType::RingedPlanet => rings_shader(fragment, uniforms),
+      ShaderType::Starfield => starfield_shader(fragment, uniforms),
    }
 }
 
 // Utility functions for shaders
-fn create_noise() -> FastNoiseLite {
-   let mut noise = FastNoiseLite::new();
-   noise.set_noise_type(Some(NoiseType::OpenSimplex2));
-   noise
-}
-
-fn create_cloud_noise() -> FastNoiseLite {
-   let mut noise = FastNoiseLite::new();
-   noise.set_noise_type(Some(NoiseType::OpenSimplex2));
-   noise.set_fractal_type(Some(FractalType::FBm));
-   noise.set_fractal_octaves(Some(4));
-   noise.set_fractal_lacunarity(Some(2.0));
-   noise.set_fractal_gain(Some(0.5));
-   noise
-}
 
 fn lerp_color(a: &Color, b: &Color, t: f32) -> Color {
    let t = t.clamp(0.0, 1.0);
+   let a_hex = a.to_hex();
+   let b_hex = b.to_hex();
+   
+   let r1 = ((a_hex >> 16) & 0xFF) as f32;
+   let g1 = ((a_hex >> 8) & 0xFF) as f32;
+   let b1 = (a_hex & 0xFF) as f32;
+   
+   let r2 = ((b_hex >> 16) & 0xFF) as f32;
+   let g2 = ((b_hex >> 8) & 0xFF) as f32;
+   let b2 = (b_hex & 0xFF) as f32;
+   
    Color::new(
-      (a.to_hex() as f32 * (1.0 - t) + (b.to_hex() >> 16) as f32 * t) as u8,
-      ((a.to_hex() >> 8) as f32 * (1.0 - t) + ((b.to_hex() >> 8) & 0xFF) as f32 * t) as u8,
-      ((a.to_hex() & 0xFF) as f32 * (1.0 - t) + (b.to_hex() & 0xFF) as f32 * t) as u8,
+      (r1 * (1.0 - t) + r2 * t) as u8,
+      (g1 * (1.0 - t) + g2 * t) as u8,
+      (b1 * (1.0 - t) + b2 * t) as u8,
    )
 }
 
@@ -154,9 +149,9 @@ fn sun_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
                               position.y * position.y + 
                               position.z * position.z).sqrt();
    
-   let core_color = Color::from_hex(0xFFFF00);  // Amarillo brillante
-   let mid_color = Color::from_hex(0xFF6600);   // Naranja
-   let edge_color = Color::from_hex(0xFF0000);  // Rojo
+   let core_color = Color::from_hex(0xFFFACD);  // Amarillo muy claro (casi blanco)
+   let mid_color = Color::from_hex(0xFFD700);   // Dorado brillante
+   let edge_color = Color::from_hex(0xFF8C00);  // Naranja dorado
    
    let base_color = if distance_from_center < 0.5 {
       let t = distance_from_center * 2.0;
@@ -202,43 +197,42 @@ fn sun_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 }
 
 // ============================================
-// ROCKY PLANET SHADER - Planeta tipo Tierra/Marte
+// ROCKY PLANET SHADER - Planeta tipo Marte
 // ============================================
 fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
    let position = fragment.vertex_position;
    let time = uniforms.time;
    
-   // Capa 1: Continentes y océanos base
-   let continent_zoom = 4.0;
-   let continent_noise = uniforms.noise.get_noise_3d(
-      position.x * continent_zoom,
-      position.y * continent_zoom,
-      position.z * continent_zoom,
+   // Capa 1: Terreno marciano base
+   let terrain_zoom = 4.0;
+   let terrain_noise = uniforms.noise.get_noise_3d(
+      position.x * terrain_zoom,
+      position.y * terrain_zoom,
+      position.z * terrain_zoom,
    );
    
-   // Colores base
-   let ocean_color = Color::from_hex(0x1a4d7a);      // Azul océano
-   let land_color = Color::from_hex(0x3d8c40);       // Verde tierra
-   let mountain_color = Color::from_hex(0x8b7355);   // Marrón montañas
-   let snow_color = Color::from_hex(0xf0f0f0);       // Blanco nieve
+   // Colores base de Marte
+   let rust_color = Color::from_hex(0xCD5C5C);       // Rojo óxido principal
+   let dark_rust = Color::from_hex(0x8B4513);        // Óxido oscuro
+   let light_rust = Color::from_hex(0xDEB887);       // Óxido claro/arena
+   let deep_canyon = Color::from_hex(0x654321);      // Cañones profundos
    
-   let mut base_color = if continent_noise > 0.0 {
-      // Tierra
-      if continent_noise > 0.5 {
-         // Montañas
-         let t = (continent_noise - 0.5) * 2.0;
-         lerp_color(&land_color, &mountain_color, t)
+   let mut base_color = if terrain_noise > 0.0 {
+      // Tierras altas marcianas
+      if terrain_noise > 0.5 {
+         // Montañas y mesetas
+         let t = (terrain_noise - 0.5) * 2.0;
+         lerp_color(&rust_color, &light_rust, t)
       } else {
-         land_color
+         rust_color
       }
    } else {
-      // Océano
-      let depth = continent_noise.abs();
-      let deep_ocean = Color::from_hex(0x0a2342);
-      lerp_color(&ocean_color, &deep_ocean, depth)
+      // Tierras bajas y cañones
+      let depth = terrain_noise.abs();
+      lerp_color(&dark_rust, &deep_canyon, depth)
    };
    
-   // Capa 2: Detalles de terreno (vegetación, desiertos)
+   // Capa 2: Detalles de superficie marciana (dunas, cráteres)
    let detail_zoom = 10.0;
    let detail_noise = uniforms.noise.get_noise_3d(
       position.x * detail_zoom + 100.0,
@@ -246,40 +240,38 @@ fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       position.z * detail_zoom,
    );
    
-   if continent_noise > 0.0 {
-      let detail_color = if detail_noise > 0.3 {
-         Color::from_hex(0xc2b280) // Desierto
-      } else {
-         Color::from_hex(0x228b22) // Bosque
-      };
-      base_color = blend_colors(&base_color, &detail_color, detail_noise.abs() * 0.3);
-   }
+   let detail_color = if detail_noise > 0.3 {
+      Color::from_hex(0xF4A460) // Arena/dunas
+   } else {
+      Color::from_hex(0xA0522D) // Roca marciana
+   };
+   base_color = blend_colors(&base_color, &detail_color, detail_noise.abs() * 0.4);
    
-   // Capa 3: Casquetes polares
-   let polar_threshold = 0.7;
+   // Capa 3: Casquetes polares de hielo seco (CO2)
+   let polar_threshold = 0.8;
    if position.y.abs() > polar_threshold {
       let polar_factor = (position.y.abs() - polar_threshold) / (1.0 - polar_threshold);
-      base_color = blend_colors(&base_color, &snow_color, polar_factor);
+      let ice_color = Color::from_hex(0xE6E6FA); // Hielo seco (ligeramente azulado)
+      base_color = blend_colors(&base_color, &ice_color, polar_factor * 0.7);
    }
    
-   // Capa 4: Nubes animadas
-   let mut cloud_noise = create_cloud_noise();
-   let cloud_zoom = 6.0;
-   let cloud_speed = 0.2;
-   let cloud_value = cloud_noise.get_noise_3d(
-      position.x * cloud_zoom + time * cloud_speed,
-      position.y * cloud_zoom,
-      position.z * cloud_zoom,
+   // Capa 4: Tormentas de polvo marcianas
+   let dust_zoom = 8.0;
+   let dust_speed = 0.1;
+   let dust_noise = uniforms.noise.get_noise_3d(
+      position.x * dust_zoom + time * dust_speed,
+      position.y * dust_zoom,
+      position.z * dust_zoom + time * dust_speed * 0.3,
    );
    
-   if cloud_value > 0.5 {
-      let cloud_factor = (cloud_value - 0.5) * 2.0;
-      let cloud_color = Color::from_hex(0xffffff);
-      base_color = blend_colors(&base_color, &cloud_color, cloud_factor * 0.6);
+   if dust_noise > 0.6 {
+      let dust_factor = (dust_noise - 0.6) / 0.4;
+      let dust_color = Color::from_hex(0xD2691E); // Color polvo rojizo
+      base_color = blend_colors(&base_color, &dust_color, dust_factor * 0.3);
    }
    
-   // Aplicar iluminación
-   let light_intensity = fragment.intensity;
+   // Aplicar iluminación suave para ver todo el planeta
+   let light_intensity = fragment.intensity * 0.7 + 0.3; // Mínimo 30% de luz ambiente
    base_color * light_intensity
 }
 
@@ -293,10 +285,6 @@ fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
    // Capa 1: Bandas horizontales base
    let band_frequency = 15.0;
    let band_position = position.y * band_frequency;
-   let band_noise = uniforms.noise.get_noise_2d(
-      band_position,
-      time * 0.1,
-   );
    
    // Colores de las bandas
    let color1 = Color::from_hex(0xd4a574); // Beige claro
@@ -366,9 +354,9 @@ fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       let detail_color = Color::from_hex(0xf5e6d3);
       let final_color = blend_colors(&with_spot, &detail_color, detail_noise.abs() * 0.2);
       
-      final_color * fragment.intensity
+      final_color * (fragment.intensity * 0.7 + 0.3)
    } else {
-      with_turbulence * fragment.intensity
+      with_turbulence * (fragment.intensity * 0.7 + 0.3)
    }
 }
 
@@ -424,7 +412,95 @@ fn moon_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
    let detail_color = Color::from_hex(0xb0b0b0);
    final_color = blend_colors(&final_color, &detail_color, detail_noise.abs() * 0.15);
    
-   // Aplicar iluminación más dramática para la luna
-   let light_intensity = fragment.intensity.powf(0.8); // Más contraste
+   // Aplicar iluminación suave para la luna
+   let light_intensity = fragment.intensity * 0.6 + 0.4; // Luz ambiente alta para la luna
    final_color * light_intensity
+}
+
+// ============================================
+// RINGS SHADER - Anillos con partículas de hielo y rocas
+// ============================================
+fn rings_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+   let position = fragment.vertex_position;
+   let time = uniforms.time;
+   
+   // Calcular distancia desde el centro para crear anillos concéntricos
+   let distance_from_center = (position.x * position.x + position.z * position.z).sqrt();
+   
+   // Solo renderizar en las zonas de anillos (no muy cerca del planeta)
+   if distance_from_center < 1.1 || distance_from_center > 1.4 {
+      return Color::from_hex(0x000000); // Transparente fuera del rango de anillos
+   }
+   
+   // Crear múltiples anillos con diferentes densidades
+   let ring_frequency = 30.0;
+   let ring_position = distance_from_center * ring_frequency;
+   let ring_pattern = (ring_position.sin() * 0.5 + 0.5).powf(2.0);
+   
+   // Si no estamos en una zona de anillo, hacerlo transparente
+   if ring_pattern < 0.4 {
+      return Color::from_hex(0x000000); // Transparente
+   }
+   
+   // Capa 1: Partículas de hielo (brillantes)
+   let ice_zoom = 50.0;
+   let ice_noise = uniforms.noise.get_noise_3d(
+      position.x * ice_zoom + time * 0.1,
+      position.y * ice_zoom,
+      position.z * ice_zoom - time * 0.1,
+   );
+   
+   // Capa 2: Rocas más grandes (oscuras)
+   let rock_zoom = 20.0;
+   let rock_noise = uniforms.noise.get_noise_3d(
+      position.x * rock_zoom - time * 0.05,
+      position.y * rock_zoom,
+      position.z * rock_zoom + time * 0.05,
+   );
+   
+   // Colores base de los anillos
+   let ice_color = Color::from_hex(0xE6F3FF);    // Azul hielo muy claro
+   let rock_color = Color::from_hex(0x8B7355);   // Marrón rocoso
+   let dust_color = Color::from_hex(0xD2B48C);   // Color polvo
+   
+   // Mezclar materiales basado en el noise
+   let base_color = if ice_noise > 0.3 {
+      // Partículas de hielo brillante
+      let ice_factor = (ice_noise - 0.3) / 0.7;
+      lerp_color(&dust_color, &ice_color, ice_factor)
+   } else if rock_noise > 0.1 {
+      // Rocas más oscuras
+      let rock_factor = (rock_noise - 0.1) / 0.9;
+      lerp_color(&dust_color, &rock_color, rock_factor)
+   } else {
+      // Polvo fino de fondo
+      dust_color
+   };
+   
+   // Capa 3: Variación de densidad en los anillos
+   let density_zoom = 8.0;
+   let density_noise = uniforms.noise.get_noise_2d(
+      distance_from_center * density_zoom,
+      time * 0.02,
+   );
+   
+   let density_factor = (density_noise + 1.0) * 0.5;
+   let final_alpha = ring_pattern * density_factor;
+   
+   // Aplicar transparencia basada en la densidad
+   if final_alpha < 0.3 {
+      Color::from_hex(0x000000) // Transparente
+   } else {
+      // Mezclar con el color de fondo espacial para simular transparencia
+      let space_color = Color::from_hex(0x000011);
+      blend_colors(&space_color, &base_color, final_alpha * 0.5) // Más transparente
+   }
+}
+
+// ============================================
+// STARFIELD SHADER - Campo de estrellas simple
+// ============================================
+fn starfield_shader(_fragment: &Fragment, _uniforms: &Uniforms) -> Color {
+   // Temporalmente devolver solo fondo negro transparente para debug
+   Color::from_hex(0x000000)
 }
